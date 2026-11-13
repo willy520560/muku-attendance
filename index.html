@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>木木牙醫｜員工打卡</title>
+  <title>木木牧牧牙醫｜員工打卡</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Noto Sans TC", sans-serif;
@@ -40,13 +40,15 @@
 </head>
 <body>
   <div class="container">
-    <h1>木木牙醫</h1>
+    <h1>木木牙醫｜牧牧牙醫</h1>
     <div class="site" id="siteName">員工打卡系統</div>
 
-    <button onclick="alert('下一步完成登入功能後啟用')">上班打卡</button>
-    <button onclick="alert('下一步完成登入功能後啟用')">開始午休</button>
-    <button onclick="alert('下一步完成登入功能後啟用')">結束午休</button>
-    <button onclick="alert('下一步完成登入功能後啟用')">下班打卡</button>
+   <button onclick="alert('早診上班：下一步啟用')">早診上班</button>
+<button onclick="alert('早診下班：下一步啟用')">早診下班</button>
+<button onclick="alert('午診上班：下一步啟用')">午診上班</button>
+<button onclick="alert('午診下班：下一步啟用')">午診下班</button>
+<button onclick="alert('晚診上班：下一步啟用')">晚診上班</button>
+<button onclick="alert('晚診下班：下一步啟用')">晚診下班</button>
 
     <div id="status">請確認目前所在院區</div>
   </div>
@@ -54,8 +56,8 @@
   <script>
     const site = new URLSearchParams(location.search).get("site");
     const names = {
-      Yilan: "宜蘭院區",
-      Luodong: "羅東院區"
+      Yilan: "宜蘭木木牙醫",
+      Luodong: "羅東牧牧牙醫"
     };
     document.getElementById("siteName").textContent =
       names[site] || "請由診所 NFC 感應進入";
