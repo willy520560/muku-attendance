@@ -1,0 +1,33 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>木木牙醫打卡回覆</title>
+</head>
+<body>
+  <p>正在傳送打卡結果……</p>
+
+  <script>
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const raw = params.get("data");
+
+      if (!raw) {
+        throw new Error("沒有收到打卡結果");
+      }
+
+      const result = JSON.parse(raw);
+
+      if (window.parent !== window) {
+        window.parent.postMessage(result, "*");
+      } else {
+        document.body.textContent = "無法傳送打卡結果，請返回打卡頁面。";
+      }
+    } catch (error) {
+      document.body.textContent = "打卡回覆處理失敗：" + error.message;
+    }
+  </script>
+</body>
+</html>
