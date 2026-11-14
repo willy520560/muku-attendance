@@ -55,14 +55,56 @@
   </div>
 
   <script>
-    const site = new URLSearchParams(location.search).get("site");
-    const names = {
-      Yilan: "宜蘭木木牙醫",
-      Luodong: "羅東牧牧牙醫"
-    };
-    document.getElementById("siteName").textContent =
-      names[site] || "請由診所 NFC 感應進入";
-  </script>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  const site = new URLSearchParams(location.search).get("site");
+
+  const names = {
+    Yilan: "宜蘭木木牙醫",
+    Luodong: "羅東牧牧牙醫"
+  };
+
+  document.getElementById("siteName").textContent =
+    names[site] || "請由診所 NFC 感應進入";
+
+  function initializeGoogleLogin() {
+    google.accounts.id.initialize({
+      client_id: "754861408537-j0lseftm03eppt6shq042bg55nqnrost.apps.googleusercontent.com",
+      callback: handleGoogleLogin
+    });
+
+    google.accounts.id.renderButton(
+      document.getElementById("googleSignInButton"),
+      {
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        shape: "rectangular",
+        width: 280
+      }
+    );
+  }
+
+  function handleGoogleLogin(response) {
+    const payload = response.credential.split(".")[1];
+    const decoded = JSON.parse(
+      decodeURIComponent(
+        atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
+          .split("")
+          .map(c => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join("")
+      )
+    );
+
+    document.getElementById("status").textContent =
+      "Google 登入測試完成：" + decoded.email +
+      "。目前尚未啟用正式打卡功能。";
+  }
+</script>
+
+<script
+  src="https://accounts.google.com/gsi/client"
+  async
+  defer
+  onload="initializeGoogleLogin()">
+</script>
 </body>
 </html>
