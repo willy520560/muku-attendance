@@ -1,110 +1,357 @@
+
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>木木牧牧牙醫｜員工打卡</title>
+  <title>木木牙醫｜員工打卡</title>
+
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Noto Sans TC", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont,
+        "Noto Sans TC", sans-serif;
       background: #f5f3ef;
       margin: 0;
       padding: 24px;
       color: #333;
     }
+
     .container {
       max-width: 420px;
       margin: 30px auto;
       background: white;
-      padding: 28px;
+      padding: 26px;
       border-radius: 18px;
       box-shadow: 0 4px 20px #00000010;
       text-align: center;
     }
+
     h1 { font-size: 25px; margin-bottom: 8px; }
-    .site { color: #777; margin-bottom: 28px; }
+
+    .site {
+      color: #777;
+      margin-bottom: 20px;
+    }
+
+    #employee {
+      margin: 14px 0;
+      font-weight: 600;
+    }
+
+    .section {
+      margin-top: 22px;
+      font-weight: bold;
+      color: #536b5c;
+    }
+
     button {
       width: 100%;
-      padding: 17px;
-      margin: 8px 0;
+      padding: 16px;
+      margin: 7px 0;
       border: 0;
       border-radius: 12px;
       background: #536b5c;
       color: white;
-      font-size: 18px;
+      font-size: 17px;
       cursor: pointer;
     }
-    button:disabled { opacity: .5; }
-    #status { margin-top: 20px; color: #666; line-height: 1.6; }
+
+    button:disabled {
+      opacity: .4;
+      cursor: not-allowed;
+    }
+
+    #status {
+      margin-top: 20px;
+      color: #666;
+      line-height: 1.7;
+      white-space: pre-line;
+    }
+
+    .logout {
+      background: #888;
+      font-size: 14px;
+    }
+
+    iframe, form {
+      display: none;
+    }
   </style>
 </head>
+
 <body>
   <div class="container">
     <h1>木木牙醫｜牧牧牙醫</h1>
-    <div class="site" id="siteName">員工打卡系統</div>
+
+    <div class="site" id="siteName">
+      員工打卡系統
+    </div>
+
     <div id="googleSignInButton"></div>
 
-   <button onclick="alert('早診上班：下一步啟用')">早診上班</button>
-<button onclick="alert('早診下班：下一步啟用')">早診下班</button>
-<button onclick="alert('午診上班：下一步啟用')">午診上班</button>
-<button onclick="alert('午診下班：下一步啟用')">午診下班</button>
-<button onclick="alert('晚診上班：下一步啟用')">晚診上班</button>
-<button onclick="alert('晚診下班：下一步啟用')">晚診下班</button>
+    <div id="employee"></div>
 
-    <div id="status">請確認目前所在院區</div>
+    <div class="section">早診</div>
+    <button data-action="早診上班" disabled>早診上班</button>
+    <button data-action="早診下班" disabled>早診下班</button>
+
+    <div class="section">午診</div>
+    <button data-action="午診上班" disabled>午診上班</button>
+    <button data-action="午診下班" disabled>午診下班</button>
+
+    <div class="section">晚診</div>
+    <button data-action="晚診上班" disabled>晚診上班</button>
+    <button data-action="晚診下班" disabled>晚診下班</button>
+
+    <button id="logout" class="logout" hidden>
+      登出
+    </button>
+
+    <div id="status">請先使用員工 Gmail 登入</div>
   </div>
 
+  <form id="attendanceForm"
+        method="POST"
+        target="attendanceFrame"
+        action="https://script.google.com/macros/s/AKfycbzIZKKUFSJqR_FcDuPiIrRclvRNqLe0QdUeDUfa7sGY0BQYaoluGtrUhgjzCnF6gzsZ/exec">
+
+    <input type="hidden" name="payload" id="payload">
+  </form>
+
+  <iframe name="attendanceFrame" id="attendanceFrame"></iframe>
+
   <script>
-  const site = new URLSearchParams(location.search).get("site");
+    const CLIENT_ID =
+      "754861408537-j0lseftm03eppt6shq042bg55nqnrost.apps.googleusercontent.com";
 
-  const names = {
-    Yilan: "宜蘭木木牙醫",
-    Luodong: "羅東牧牧牙醫"
-  };
+    const site = new URLSearchParams(location.search).get("site");
 
-  document.getElementById("siteName").textContent =
-    names[site] || "請由診所 NFC 感應進入";
+    const names = {
+      Yilan: "宜蘭木木牙醫",
+      Luodong: "羅東牧牧牙醫"
+    };
 
-  function initializeGoogleLogin() {
-    google.accounts.id.initialize({
-      client_id: "754861408537-j0lseftm03eppt6shq042bg55nqnrost.apps.googleusercontent.com",
-      callback: handleGoogleLogin
+    let idToken = null;
+    let employeeEmail = "";
+    let pendingRequestId = null;
+    let requestTimer = null;
+
+    const statusBox = document.getElementById("status");
+    const employeeBox = document.getElementById("employee");
+    const buttons = document.querySelectorAll("[data-action]");
+
+    document.getElementById("siteName").textContent =
+      names[site] || "院區網址錯誤";
+
+    function setStatus(message) {
+      statusBox.textContent = message;
+    }
+
+    function setButtonsEnabled(enabled) {
+      buttons.forEach(button => {
+        button.disabled = !enabled;
+      });
+    }
+
+    function decodeToken(token) {
+      const payload = token.split(".")[1];
+      const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+
+      const decoded = atob(base64);
+      const escaped = decoded.split("").map(c =>
+        "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)
+      ).join("");
+
+      return JSON.parse(decodeURIComponent(escaped));
+    }
+
+    function handleGoogleLogin(response) {
+      try {
+        const data = decodeToken(response.credential);
+
+        idToken = response.credential;
+        employeeEmail = data.email || "";
+
+        employeeBox.textContent =
+          "已登入：" + employeeEmail;
+
+        document.getElementById("googleSignInButton").hidden = true;
+        document.getElementById("logout").hidden = false;
+
+        if (!names[site]) {
+          setStatus("院區網址錯誤，請重新掃描診所 NFC。");
+          return;
+        }
+
+        setButtonsEnabled(true);
+        setStatus("登入完成，請選擇打卡項目。");
+
+      } catch (error) {
+        setStatus("登入資料讀取失敗，請重新登入。");
+      }
+    }
+
+    function initializeGoogleLogin() {
+      google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: handleGoogleLogin
+      });
+
+      google.accounts.id.renderButton(
+        document.getElementById("googleSignInButton"),
+        {
+          theme: "outline",
+          size: "large",
+          text: "signin_with",
+          shape: "rectangular",
+          width: 280
+        }
+      );
+    }
+
+    function makeRequestId() {
+      if (crypto.randomUUID) {
+        return crypto.randomUUID();
+      }
+
+      return Date.now() + "-" +
+        Math.random().toString(36).slice(2);
+    }
+
+    function sendAttendance(action) {
+      if (!idToken) {
+        setStatus("請先登入 Google 帳號。");
+        return;
+      }
+
+      if (!names[site]) {
+        setStatus("院區網址錯誤。");
+        return;
+      }
+
+      setButtonsEnabled(false);
+      setStatus("正在取得 GPS 定位，請稍候……");
+
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          const requestId = makeRequestId();
+
+          const payload = {
+            idToken: idToken,
+            site: site,
+            action: action,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            requestId: requestId
+          };
+
+          pendingRequestId = requestId;
+
+          setStatus("定位完成，正在送出打卡資料……");
+
+          requestTimer = setTimeout(() => {
+            if (pendingRequestId === requestId) {
+              pendingRequestId = null;
+              setButtonsEnabled(true);
+              setStatus(
+                "等待後端回覆逾時。\n請先確認 Google Sheet 是否有紀錄，再決定是否重試。"
+              );
+            }
+          }, 30000);
+
+          document.getElementById("payload").value =
+            JSON.stringify(payload);
+
+          document.getElementById("attendanceForm").submit();
+        },
+        error => {
+          setButtonsEnabled(true);
+
+          const messages = {
+            1: "請允許瀏覽器使用定位功能。",
+            2: "目前無法取得 GPS，請稍後再試。",
+            3: "GPS 定位逾時，請重新操作。"
+          };
+
+          setStatus(messages[error.code] || "GPS 定位失敗。");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    window.addEventListener("message", event => {
+      if (event.source !==
+          document.getElementById("attendanceFrame").contentWindow) {
+        return;
+      }
+
+      const data = event.data;
+
+      if (
+        !data ||
+        data.type !== "MUKU_ATTENDANCE_RESULT" ||
+        data.requestId !== pendingRequestId
+      ) {
+        return;
+      }
+
+      clearTimeout(requestTimer);
+      pendingRequestId = null;
+      setButtonsEnabled(true);
+
+      if (data.result && data.result.ok) {
+        setStatus(
+          "打卡成功！\n" +
+          data.result.name + "\n" +
+          names[data.result.site] + "\n" +
+          data.result.action
+        );
+      } else {
+        setStatus(
+          "打卡未完成：\n" +
+          ((data.result && data.result.message) ||
+            "後端處理失敗")
+        );
+      }
     });
 
-    google.accounts.id.renderButton(
-      document.getElementById("googleSignInButton"),
-      {
-        theme: "outline",
-        size: "large",
-        text: "signin_with",
-        shape: "rectangular",
-        width: 280
-      }
-    );
-  }
+    buttons.forEach(button => {
+      button.addEventListener("click", () => {
+        sendAttendance(button.dataset.action);
+      });
+    });
 
-  function handleGoogleLogin(response) {
-    const payload = response.credential.split(".")[1];
-    const decoded = JSON.parse(
-      decodeURIComponent(
-        atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
-          .split("")
-          .map(c => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-          .join("")
-      )
-    );
+    document.getElementById("logout").addEventListener("click", () => {
+      idToken = null;
+      employeeEmail = "";
+      employeeBox.textContent = "";
 
-    document.getElementById("status").textContent =
-      "Google 登入測試完成：" + decoded.email +
-      "。目前尚未啟用正式打卡功能。";
-  }
-</script>
+      setButtonsEnabled(false);
 
-<script
-  src="https://accounts.google.com/gsi/client"
-  async
-  defer
-  onload="initializeGoogleLogin()">
-</script>
+      document.getElementById("googleSignInButton").hidden = false;
+      document.getElementById("logout").hidden = true;
+
+      google.accounts.id.disableAutoSelect();
+
+      setStatus("已登出，請重新登入。");
+    });
+
+    if (site === "Yilan" || site === "Luodong") {
+      setStatus("請使用員工 Gmail 登入。");
+    }
+
+  </script>
+
+  <script
+    src="https://accounts.google.com/gsi/client"
+    async
+    defer
+    onload="initializeGoogleLogin()">
+  </script>
 </body>
 </html>
