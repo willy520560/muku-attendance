@@ -1,0 +1,58 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>木木牙醫回覆測試</title>
+</head>
+<body>
+  <h2>木木牙醫回覆機制測試</h2>
+  <p id="status">正在測試……</p>
+
+  <iframe
+    id="testFrame"
+    title="回覆測試"
+    style="width:1px;height:1px;border:0;">
+  </iframe>
+
+  <script>
+    const status = document.getElementById("status");
+
+    window.addEventListener("message", function(event) {
+      if (event.origin !== window.location.origin) return;
+
+      const data = event.data;
+
+      if (!data || data.type !== "MUKU_ATTENDANCE_RESULT") return;
+
+      if (data.requestId === "test123" &&
+          data.result &&
+          data.result.message === "測試成功") {
+        status.textContent = "測試成功！GitHub 頁面可以正常接收回覆。";
+      } else {
+        status.textContent = "收到訊息，但資料內容不符合預期。";
+      }
+    });
+
+    const testData = {
+      type: "MUKU_ATTENDANCE_RESULT",
+      requestId: "test123",
+      result: {
+        ok: true,
+        message: "測試成功"
+      }
+    };
+
+    document.getElementById("testFrame").src =
+      "https://willy520560.github.io/muku-attendance/callback.html?data=" +
+      encodeURIComponent(JSON.stringify(testData));
+
+    setTimeout(function() {
+      if (status.textContent === "正在測試……") {
+        status.textContent = "測試逾時，尚未收到回覆。";
+      }
+    }, 5000);
+  </script>
+</body>
+</html>
