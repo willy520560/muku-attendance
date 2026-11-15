@@ -209,7 +209,13 @@
         }
       );
     }
-
+window.addEventListener("load", () => {
+  if (window.google && google.accounts) {
+    initializeGoogleLogin();
+  } else {
+    setStatus("Google 登入程式載入失敗，請重新整理。");
+  }
+});
     function makeRequestId() {
       if (crypto.randomUUID) {
         return crypto.randomUUID();
