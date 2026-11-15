@@ -7,34 +7,56 @@
   <title>木木牙醫打卡回覆</title>
 </head>
 <body>
-  <p>正在傳送打卡結果……</p>
+  <p id="status">正在傳送打卡結果……</p>
 
-  
-<script>
-  try {
-    const params = new URLSearchParams(window.location.search);
-    const raw = params.get("data");
+  <script>
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const raw = params.get("data");
 
-    if (!raw) {
-      throw new Error("沒有收到打卡結果");
+      if (!raw) {
+        throw new Error("沒有收到打卡結果");
+      }
+
+      const result = JSON.parse(raw);
+
+      if (
+        !result ||
+        result.type !== "MUKU_ATTENDANCE_RESULT" ||
+        !result.requestId
+      ) {
+        throw new Error("打卡結果格式不正確");
+      }
+
+      if (window.parent === window) {
+        throw new Error("找不到打卡主畫面");
+      }
+
+      let attempts = 0;
+
+      const sendResult = () => {
+        attempts++;
+
+        window.parent.postMessage(
+          result,
+          "https://willy520560.github.io"
+        );
+
+        if (attempts >= 20) {
+          document.getElementById("status").textContent =
+            "已傳送打卡結果，請返回打卡頁面查看。";
+          clearInterval(sender);
+        }
+      };
+
+      sendResult();
+
+      const sender = setInterval(sendResult, 500);
+
+    } catch (error) {
+      document.getElementById("status").textContent =
+        "打卡回覆處理失敗：" + error.message;
     }
-
-    const result = JSON.parse(raw);
-
-    try {
-      window.parent.postMessage(result, "*");
-    } catch (e) {}
-
-    try {
-      window.top.postMessage(result, "*");
-    } catch (e) {}
-
-    document.body.textContent = "打卡結果已傳送";
-  } catch (error) {
-    document.body.textContent =
-      "打卡回覆處理失敗：" + error.message;
-  }
-</script>
-
+  </script>
 </body>
 </html>
