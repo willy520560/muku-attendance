@@ -6,57 +6,50 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>木木牙醫打卡回覆</title>
 </head>
+
 <body>
   <p id="status">正在傳送打卡結果……</p>
 
   <script>
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const raw = params.get("data");
+    (function() {
+      try {
+        const params =
+          new URLSearchParams(window.location.search);
 
-      if (!raw) {
-        throw new Error("沒有收到打卡結果");
-      }
+        const raw = params.get("data");
 
-      const result = JSON.parse(raw);
+        if (!raw) {
+          throw new Error("沒有收到打卡結果");
+        }
 
-      if (
-        !result ||
-        result.type !== "MUKU_ATTENDANCE_RESULT" ||
-        !result.requestId
-      ) {
-        throw new Error("打卡結果格式不正確");
-      }
+        const result = JSON.parse(raw);
 
-      if (window.parent === window) {
-        throw new Error("找不到打卡主畫面");
-      }
+        if (
+          !result ||
+          result.type !== "MUKU_ATTENDANCE_RESULT" ||
+          !result.requestId
+        ) {
+          throw new Error("打卡結果格式不正確");
+        }
 
-      let attempts = 0;
-
-      const sendResult = () => {
-        attempts++;
+        if (window.parent === window) {
+          throw new Error("找不到打卡主畫面");
+        }
 
         window.parent.postMessage(
           result,
           "https://willy520560.github.io"
         );
 
-        if (attempts >= 20) {
-          document.getElementById("status").textContent =
-            "已傳送打卡結果，請返回打卡頁面查看。";
-          clearInterval(sender);
-        }
-      };
+        document.getElementById("status").textContent =
+          "打卡結果已傳送，請返回打卡頁面。";
 
-      sendResult();
-
-      const sender = setInterval(sendResult, 500);
-
-    } catch (error) {
-      document.getElementById("status").textContent =
-        "打卡回覆處理失敗：" + error.message;
-    }
+      } catch (error) {
+        document.getElementById("status").textContent =
+          "打卡回覆處理失敗：" + error.message;
+      }
+    })();
   </script>
+
 </body>
 </html>
