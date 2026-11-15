@@ -1,7 +1,6 @@
 
 <!DOCTYPE html>
 <html lang="zh-Hant">
-  <script src="https://accounts.google.com/gsi/client" async></script>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -27,7 +26,10 @@
       text-align: center;
     }
 
-    h1 { font-size: 25px; margin-bottom: 8px; }
+    h1 {
+      font-size: 25px;
+      margin-bottom: 8px;
+    }
 
     .site {
       color: #777;
@@ -82,6 +84,7 @@
 
 <body>
   <div class="container">
+
     <h1>木木牙醫｜牧牧牙醫</h1>
 
     <div class="site" id="siteName">
@@ -108,24 +111,31 @@
       登出
     </button>
 
-    <div id="status">請先使用員工 Gmail 登入</div>
+    <div id="status">正在載入 Google 登入服務……</div>
+
   </div>
 
-  <form id="attendanceForm"
-        method="POST"
-        target="attendanceFrame"
-        action="https://script.google.com/macros/s/AKfycbzIZKKUFSJqR_FcDuPiIrRclvRNqLe0QdUeDUfa7sGY0BQYaoluGtrUhgjzCnF6gzsZ/exec">
-
+  <form
+    id="attendanceForm"
+    method="POST"
+    target="attendanceFrame"
+    action="https://script.google.com/macros/s/AKfycbzIZKKUFSJqR_FcDuPiIrRclvRNqLe0QdUeDUfa7sGY0BQYaoluGtrUhgjzCnF6gzsZ/exec"
+  >
     <input type="hidden" name="payload" id="payload">
   </form>
 
   <iframe name="attendanceFrame" id="attendanceFrame"></iframe>
 
   <script>
+    // ==============================
+    // 1. 基本設定
+    // ==============================
+
     const CLIENT_ID =
       "754861408537-j0lseftm03eppt6shq042bg55nqnrost.apps.googleusercontent.com";
 
-    const site = new URLSearchParams(location.search).get("site");
+    const site =
+      new URLSearchParams(location.search).get("site");
 
     const names = {
       Yilan: "宜蘭木木牙醫",
@@ -137,12 +147,28 @@
     let pendingRequestId = null;
     let requestTimer = null;
 
-    const statusBox = document.getElementById("status");
-    const employeeBox = document.getElementById("employee");
-    const buttons = document.querySelectorAll("[data-action]");
+    const statusBox =
+      document.getElementById("status");
+
+    const employeeBox =
+      document.getElementById("employee");
+
+    const loginBox =
+      document.getElementById("googleSignInButton");
+
+    const logoutButton =
+      document.getElementById("logout");
+
+    const buttons =
+      document.querySelectorAll("[data-action]");
 
     document.getElementById("siteName").textContent =
       names[site] || "院區網址錯誤";
+
+
+    // ==============================
+    // 2. 畫面控制
+    // ==============================
 
     function setStatus(message) {
       statusBox.textContent = message;
@@ -154,11 +180,24 @@
       });
     }
 
+
+    // ==============================
+    // 3. Google 登入資料解析
+    // ==============================
+
     function decodeToken(token) {
       const payload = token.split(".")[1];
-      const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+
+      let base64 = payload
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+
+      while (base64.length % 4) {
+        base64 += "=";
+      }
 
       const decoded = atob(base64);
+
       const escaped = decoded.split("").map(c =>
         "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)
       ).join("");
@@ -166,64 +205,180 @@
       return JSON.parse(decodeURIComponent(escaped));
     }
 
+
+    // ==============================
+    // 4. Google 登入成功
+    // ==============================
+
     function handleGoogleLogin(response) {
       try {
+        if (!response || !response.credential) {
+          throw new Error("沒有取得 Google 登入憑證");
+        }
+
         const data = decodeToken(response.credential);
 
         idToken = response.credential;
         employeeEmail = data.email || "";
 
+        if (!employeeEmail) {
+          throw new Error("無法取得員工 Gmail");
+        }
+
         employeeBox.textContent =
           "已登入：" + employeeEmail;
 
-        document.getElementById("googleSignInButton").hidden = true;
-        document.getElementById("logout").hidden = false;
+        loginBox.hidden = true;
+        logoutButton.hidden = false;
 
         if (!names[site]) {
+          setButtonsEnabled(false);
           setStatus("院區網址錯誤，請重新掃描診所 NFC。");
           return;
         }
 
         setButtonsEnabled(true);
-        setStatus("登入完成，請選擇打卡項目。");
+
+        setStatus(
+          "登入完成，請選擇打卡項目。"
+        );
 
       } catch (error) {
-        setStatus("登入資料讀取失敗，請重新登入。");
+        idToken = null;
+        employeeEmail = "";
+        setButtonsEnabled(false);
+
+        setStatus(
+          "登入失敗：" + error.message
+        );
       }
     }
 
-    function initializeGoogleLogin() {
-      google.accounts.id.initialize({
-        client_id: CLIENT_ID,
-        callback: handleGoogleLogin
-      });
 
-      google.accounts.id.renderButton(
-        document.getElementById("googleSignInButton"),
-        {
-          theme: "outline",
-          size: "large",
-          text: "signin_with",
-          shape: "rectangular",
-          width: 280
+    // ==============================
+    // 5. 顯示 Google 登入按鈕
+    // ==============================
+
+    function initializeGoogleLogin() {
+      try {
+        if (
+          !window.google ||
+          !google.accounts ||
+          !google.accounts.id
+        ) {
+          throw new Error("Google 登入服務尚未載入");
         }
-      );
+
+        google.accounts.id.initialize({
+          client_id: CLIENT_ID,
+          callback: handleGoogleLogin
+        });
+
+        loginBox.innerHTML = "";
+
+        google.accounts.id.renderButton(
+          loginBox,
+          {
+            theme: "outline",
+            size: "large",
+            text: "signin_with",
+            shape: "rectangular",
+            width: 280,
+            locale: "zh_TW"
+          }
+        );
+
+        setStatus("請使用員工 Gmail 登入。");
+
+      } catch (error) {
+        setStatus(
+          "Google 登入初始化失敗：" + error.message
+        );
+      }
     }
-window.addEventListener("load", () => {
-  if (window.google && google.accounts) {
-    initializeGoogleLogin();
-  } else {
-    setStatus("Google 登入程式載入失敗，請重新整理。");
-  }
-});
+
+
+    // ==============================
+    // 6. 載入 Google 登入程式
+    // ==============================
+
+    function loadGoogleLogin() {
+      const script = document.createElement("script");
+
+      script.src =
+        "https://accounts.google.com/gsi/client";
+
+      script.async = true;
+
+      script.onload = function() {
+        initializeGoogleLogin();
+      };
+
+      script.onerror = function() {
+        setStatus(
+          "Google 登入程式載入失敗，請檢查網路或重新整理。"
+        );
+      };
+
+      document.head.appendChild(script);
+    }
+
+
+    // ==============================
+    // 7. 登出
+    // ==============================
+
+    logoutButton.addEventListener("click", function() {
+      idToken = null;
+      employeeEmail = "";
+
+      if (requestTimer) {
+        clearTimeout(requestTimer);
+        requestTimer = null;
+      }
+
+      pendingRequestId = null;
+
+      if (
+        window.google &&
+        google.accounts &&
+        google.accounts.id
+      ) {
+        google.accounts.id.disableAutoSelect();
+      }
+
+      employeeBox.textContent = "";
+      logoutButton.hidden = true;
+      loginBox.hidden = false;
+
+      setButtonsEnabled(false);
+
+      initializeGoogleLogin();
+
+      setStatus("已登出，請使用員工 Gmail 重新登入。");
+    });
+
+
+    // ==============================
+    // 8. 產生打卡編號
+    // ==============================
+
     function makeRequestId() {
-      if (crypto.randomUUID) {
+      if (
+        window.crypto &&
+        typeof crypto.randomUUID === "function"
+      ) {
         return crypto.randomUUID();
       }
 
       return Date.now() + "-" +
         Math.random().toString(36).slice(2);
     }
+
+
+    // ==============================
+    // 9. 執行打卡
+    // ==============================
 
     function sendAttendance(action) {
       if (!idToken) {
@@ -236,11 +391,18 @@ window.addEventListener("load", () => {
         return;
       }
 
+      if (pendingRequestId) {
+        setStatus("上一筆打卡仍在處理中，請稍候。");
+        return;
+      }
+
       setButtonsEnabled(false);
+
       setStatus("正在取得 GPS 定位，請稍候……");
 
       navigator.geolocation.getCurrentPosition(
-        position => {
+
+        function(position) {
           const requestId = makeRequestId();
 
           const payload = {
@@ -257,12 +419,16 @@ window.addEventListener("load", () => {
 
           setStatus("定位完成，正在送出打卡資料……");
 
-          requestTimer = setTimeout(() => {
+          requestTimer = setTimeout(function() {
             if (pendingRequestId === requestId) {
               pendingRequestId = null;
+              requestTimer = null;
+
               setButtonsEnabled(true);
+
               setStatus(
-                "等待後端回覆逾時。\n請先確認 Google Sheet 是否有紀錄，再決定是否重試。"
+                "等待後端回覆逾時。\n" +
+                "請先確認 Google Sheet 是否有紀錄，再決定是否重試。"
               );
             }
           }, 30000);
@@ -272,7 +438,8 @@ window.addEventListener("load", () => {
 
           document.getElementById("attendanceForm").submit();
         },
-        error => {
+
+        function(error) {
           setButtonsEnabled(true);
 
           const messages = {
@@ -281,8 +448,11 @@ window.addEventListener("load", () => {
             3: "GPS 定位逾時，請重新操作。"
           };
 
-          setStatus(messages[error.code] || "GPS 定位失敗。");
+          setStatus(
+            messages[error.code] || "GPS 定位失敗。"
+          );
         },
+
         {
           enableHighAccuracy: true,
           timeout: 20000,
@@ -291,34 +461,84 @@ window.addEventListener("load", () => {
       );
     }
 
-   
-window.addEventListener("message", event => {
-  const data = event.data;
 
-  if (
-    !data ||
-    data.type !== "MUKU_ATTENDANCE_RESULT" ||
-    data.requestId !== pendingRequestId
-  ) {
-    return;
-  }
+    // ==============================
+    // 10. 六個打卡按鈕
+    // ==============================
 
-  clearTimeout(requestTimer);
-  pendingRequestId = null;
-  setButtonsEnabled(true);
+    buttons.forEach(button => {
+      button.addEventListener("click", function() {
+        const action = button.dataset.action;
+        sendAttendance(action);
+      });
+    });
 
-  if (data.result && data.result.ok) {
-    setStatus(
-      "打卡成功！\n" +
-      data.result.name + "\n" +
-      names[data.result.site] + "\n" +
-      data.result.action
-    );
-  } else {
-    setStatus(
-      "打卡未完成：\n" +
-      ((data.result && data.result.message) ||
-        "後端處理失敗")
-    );
-  }
-});
+
+    // ==============================
+    // 11. 接收後端回覆
+    // ==============================
+
+    window.addEventListener("message", function(event) {
+
+      // 只接受自己的 GitHub Pages 網域
+      if (event.origin !== location.origin) {
+        return;
+      }
+
+      const data = event.data;
+
+      if (
+        !data ||
+        data.type !== "MUKU_ATTENDANCE_RESULT" ||
+        data.requestId !== pendingRequestId
+      ) {
+        return;
+      }
+
+      if (requestTimer) {
+        clearTimeout(requestTimer);
+        requestTimer = null;
+      }
+
+      pendingRequestId = null;
+
+      setButtonsEnabled(true);
+
+      if (data.result && data.result.ok) {
+
+        setStatus(
+          "打卡成功！\n" +
+          data.result.name + "\n" +
+          names[data.result.site] + "\n" +
+          data.result.action
+        );
+
+      } else {
+
+        setStatus(
+          "打卡未完成：\n" +
+          (
+            (data.result && data.result.message) ||
+            "後端處理失敗"
+          )
+        );
+      }
+    });
+
+
+    // ==============================
+    // 12. 啟動系統
+    // ==============================
+
+    setButtonsEnabled(false);
+
+    if (!names[site]) {
+      setStatus("院區網址錯誤，請重新掃描診所 NFC。");
+    } else {
+      loadGoogleLogin();
+    }
+
+  </script>
+
+</body>
+</html>
