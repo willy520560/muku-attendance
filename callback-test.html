@@ -3,20 +3,24 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>木木牙醫回覆測試</title>
+  <title>木木牙醫後端回覆測試</title>
 </head>
 <body>
-  <h2>木木牙醫回覆機制測試</h2>
-  <p id="status">正在測試……</p>
+  <h2>木木牙醫後端回覆測試</h2>
+  <p id="status">正在測試後端回覆……</p>
 
-  <iframe
-    id="testFrame"
-    title="回覆測試"
-    style="width:1px;height:1px;border:0;">
-  </iframe>
+  <iframe name="testFrame" style="display:none"></iframe>
+
+  <form
+    id="testForm"
+    method="POST"
+    target="testFrame"
+    action="https://script.google.com/macros/s/AKfycbzIZKKUFSJqR_FcDuPiIrRclvRNqLe0QdUeDUfa7sGY0BQYaoluGtrUhgjzCnF6gzsZ/exec">
+    <input type="hidden" name="payload" id="payload">
+  </form>
 
   <script>
+    const requestId = "callback-safe-test-20261115";
     const status = document.getElementById("status");
 
     window.addEventListener("message", function(event) {
@@ -24,35 +28,39 @@
 
       const data = event.data;
 
-      if (!data || data.type !== "MUKU_ATTENDANCE_RESULT") return;
+      if (!data ||
+          data.type !== "MUKU_ATTENDANCE_RESULT" ||
+          data.requestId !== requestId) return;
 
-      if (data.requestId === "test123" &&
-          data.result &&
-          data.result.message === "測試成功") {
-        status.textContent = "測試成功！GitHub 頁面可以正常接收回覆。";
+      if (data.result && data.result.ok === false) {
+        status.textContent =
+          "測試成功！後端拒絕無效 Token，並成功傳回回覆：" +
+          data.result.message;
       } else {
-        status.textContent = "收到訊息，但資料內容不符合預期。";
+        status.textContent = "收到回覆，但結果與預期不同。";
       }
     });
 
-    const testData = {
-      type: "MUKU_ATTENDANCE_RESULT",
-      requestId: "test123",
-      result: {
-        ok: true,
-        message: "測試成功"
-      }
+    const testInput = {
+      idToken: "INVALID_TEST_TOKEN",
+      site: "Yilan",
+      action: "早診上班",
+      latitude: 24.7505382,
+      longitude: 121.7508403,
+      accuracy: 10,
+      requestId: requestId
     };
 
-    document.getElementById("testFrame").src =
-      "https://willy520560.github.io/muku-attendance/callback.html?data=" +
-      encodeURIComponent(JSON.stringify(testData));
+    document.getElementById("payload").value =
+      JSON.stringify(testInput);
+
+    document.getElementById("testForm").submit();
 
     setTimeout(function() {
-      if (status.textContent === "正在測試……") {
-        status.textContent = "測試逾時，尚未收到回覆。";
+      if (status.textContent === "正在測試後端回覆……") {
+        status.textContent = "測試逾時，尚未收到後端回覆。";
       }
-    }, 5000);
+    }, 20000);
   </script>
 </body>
 </html>
