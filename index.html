@@ -284,72 +284,34 @@
       );
     }
 
-    window.addEventListener("message", event => {
    
-}
+window.addEventListener("message", event => {
+  const data = event.data;
 
-      const data = event.data;
+  if (
+    !data ||
+    data.type !== "MUKU_ATTENDANCE_RESULT" ||
+    data.requestId !== pendingRequestId
+  ) {
+    return;
+  }
 
-      if (
-        !data ||
-        data.type !== "MUKU_ATTENDANCE_RESULT" ||
-        data.requestId !== pendingRequestId
-      ) {
-        return;
-      }
+  clearTimeout(requestTimer);
+  pendingRequestId = null;
+  setButtonsEnabled(true);
 
-      clearTimeout(requestTimer);
-      pendingRequestId = null;
-      setButtonsEnabled(true);
-
-      if (data.result && data.result.ok) {
-        setStatus(
-          "打卡成功！\n" +
-          data.result.name + "\n" +
-          names[data.result.site] + "\n" +
-          data.result.action
-        );
-      } else {
-        setStatus(
-          "打卡未完成：\n" +
-          ((data.result && data.result.message) ||
-            "後端處理失敗")
-        );
-      }
-    });
-
-    buttons.forEach(button => {
-      button.addEventListener("click", () => {
-        sendAttendance(button.dataset.action);
-      });
-    });
-
-    document.getElementById("logout").addEventListener("click", () => {
-      idToken = null;
-      employeeEmail = "";
-      employeeBox.textContent = "";
-
-      setButtonsEnabled(false);
-
-      document.getElementById("googleSignInButton").hidden = false;
-      document.getElementById("logout").hidden = true;
-
-      google.accounts.id.disableAutoSelect();
-
-      setStatus("已登出，請重新登入。");
-    });
-
-    if (site === "Yilan" || site === "Luodong") {
-      setStatus("請使用員工 Gmail 登入。");
-    }
-
-  </script>
-
-  <script
-    src="https://accounts.google.com/gsi/client"
-    async
-    defer
-    onload="initializeGoogleLogin()">
-  </script>
-</body>
-</html>
+  if (data.result && data.result.ok) {
+    setStatus(
+      "打卡成功！\n" +
+      data.result.name + "\n" +
+      names[data.result.site] + "\n" +
+      data.result.action
+    );
+  } else {
+    setStatus(
+      "打卡未完成：\n" +
+      ((data.result && data.result.message) ||
+        "後端處理失敗")
+    );
+  }
+});
