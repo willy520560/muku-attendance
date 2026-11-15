@@ -13,8 +13,9 @@
   <script>
     (function() {
       try {
-        const params =
-          new URLSearchParams(window.location.search);
+        const params = new URLSearchParams(
+          window.location.search
+        );
 
         const raw = params.get("data");
 
@@ -32,14 +33,24 @@
           throw new Error("打卡結果格式不正確");
         }
 
-        if (window.parent === window) {
-          throw new Error("找不到打卡主畫面");
-        }
+        const targetOrigin =
+          "https://willy520560.github.io";
 
-        window.parent.postMessage(
-          result,
-          "https://willy520560.github.io"
-        );
+        // 傳送給直接父視窗
+        try {
+          window.parent.postMessage(
+            result,
+            targetOrigin
+          );
+        } catch (e) {}
+
+        // 再傳送給最外層打卡頁面
+        try {
+          window.top.postMessage(
+            result,
+            targetOrigin
+          );
+        } catch (e) {}
 
         document.getElementById("status").textContent =
           "打卡結果已傳送，請返回打卡頁面。";
@@ -50,6 +61,5 @@
       }
     })();
   </script>
-
 </body>
 </html>
